@@ -1,0 +1,11 @@
+---
+description: Project rules
+alwaysApply: true
+---
+- Always read PROJECT_SPEC.md before making changes and follow it.
+- Use TypeScript strictly; no `any`.
+- Use Supabase server client in Server Components/Actions, browser client only in client components.
+- Every new table needs RLS policies matching the roles in the spec.
+- Format all money with the shared formatZAR() helper.
+- After finishing a task, list the files changed and anything I need to do manually (env vars, migrations).
+- Ask before installing packages not listed in the spec.

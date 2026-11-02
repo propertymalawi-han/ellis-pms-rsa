@@ -115,7 +115,7 @@ export function buildAttention(input: {
     return [
       {
         id: `expense:${expense.id}`,
-        href: `/properties/${expense.propertyId}?tab=expenses`,
+        href: `/properties/${expense.propertyId}/expenses`,
         title: expense.label,
         subtitle: expense.propertyName,
         amount: expense.total,
@@ -133,7 +133,7 @@ export function buildAttention(input: {
     return [
       {
         id: `bill-soon:${bill.id}`,
-        href: `/properties/${bill.propertyId}?tab=rates`,
+        href: `/properties/${bill.propertyId}/rates-levies`,
         title: bill.issuerName,
         subtitle: bill.propertyName,
         amount: bill.totalDue,
@@ -154,7 +154,7 @@ export function buildAttention(input: {
     return [
       {
         id: `bill:${bill.id}`,
-        href: `/properties/${bill.propertyId}?tab=rates`,
+        href: `/properties/${bill.propertyId}/rates-levies`,
         title: bill.issuerName,
         subtitle: bill.propertyName,
         amount: bill.totalDue,
@@ -172,7 +172,7 @@ export function buildAttention(input: {
       if (property.rentalType === "short_term" && !input.statementPropertyIds.has(property.id)) {
         items.push({
           id: `statement:${property.id}`,
-          href: `/properties/${property.id}?tab=income`,
+          href: `/properties/${property.id}/income`,
           title: property.name,
           subtitle: `No owner's statement for ${monthLabel}`,
           amount: null,
@@ -184,7 +184,7 @@ export function buildAttention(input: {
       if (!input.billPropertyIds.has(property.id)) {
         items.push({
           id: `rates:${property.id}`,
-          href: `/properties/${property.id}?tab=rates`,
+          href: `/properties/${property.id}/rates-levies`,
           title: property.name,
           subtitle: `No rates or levy bill for ${monthLabel}`,
           amount: null,
@@ -204,7 +204,7 @@ export function buildAttention(input: {
           .filter((lease) => lease.status === "active" && lease.endDate <= horizon)
           .map((lease) => ({
             id: `lease:${lease.id}`,
-            href: `/properties/${lease.propertyId}?tab=tenants`,
+            href: `/properties/${lease.propertyId}/tenants`,
             title: lease.tenantName,
             subtitle: lease.propertyName,
             amount: null,

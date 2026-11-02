@@ -57,6 +57,7 @@ export const startUploadSchema = documentFieldsSchema.extend({
 
 export const finishUploadSchema = documentFieldsSchema.extend({
   path: z.string().trim().min(1, "Could not save the document.").max(300),
+  thumbnailPath: z.string().trim().min(1).max(300).optional(),
 });
 
 export function resolveContentType(file: {
@@ -152,4 +153,25 @@ export function isDocumentStoragePath(propertyId: string, path: string): boolean
 export function propertyIdFromDocumentPath(path: string): string | null {
   const match = documentPathPattern.exec(path);
   return match?.[1]?.toLowerCase() ?? null;
+}
+
+/** JPEG stored next to the original. Null when the name would break the storage path rules. */
+export function thumbnailPathFor(filePath: string): string | null {
+  const match = documentPathPattern.exec(filePath);
+
+  if (!match?.[1]) {
+    return null;
+  }
+
+  const slash = filePath.lastIndexOf("/");
+  const fileName = filePath.slice(slash + 1);
+
+  if (!/^[0-9]{13}-/.test(fileName)) {
+    return null;
+  }
+
+  const stem = fileName.slice(14).replace(/\.[^.]+$/, "");
+  const thumbnail = `${filePath.slice(0, slash)}/${fileName.slice(0, 13)}-${stem.slice(0, 64)}.thumb.jpg`;
+
+  return isDocumentStoragePath(match[1], thumbnail) ? thumbnail : null;
 }

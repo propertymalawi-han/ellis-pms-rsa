@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { z } from "zod";
 
 import { getActor } from "@/lib/auth/access";
@@ -75,7 +76,7 @@ export async function listProperties(): Promise<
   };
 }
 
-export async function getProperty(id: string): Promise<PropertyLoadResult> {
+export const getProperty = cache(async function getProperty(id: string): Promise<PropertyLoadResult> {
   if (!z.uuid().safeParse(id).success) {
     return { status: "not_found" };
   }
@@ -129,7 +130,7 @@ export async function getProperty(id: string): Promise<PropertyLoadResult> {
   }
 
   return { status: "ok", isAdmin: false, property };
-}
+});
 
 function mapBasicListItem(
   row: Pick<

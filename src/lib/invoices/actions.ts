@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { revalidatePropertyTabs } from "@/lib/properties/revalidate";
 import { z } from "zod";
 
 import { getActor, type Actor } from "@/lib/auth/access";
@@ -229,8 +231,19 @@ export async function deleteInvoice(invoiceId: string): Promise<Failure | void> 
     return { error: "Invoice not found." };
   }
 
-  if (existing.issued || Number(existing.amount_paid) > 0) {
+  const unpaidDraft = !existing.issued && Number(existing.amount_paid) === 0;
+
+  if (!unpaidDraft && !actor.isAdmin) {
     return { error: "Only an unpaid draft can be deleted." };
+  }
+
+  const proofs = await actor.supabase
+    .from("payments")
+    .select("proof_file_path")
+    .eq("invoice_id", parsedId.data);
+
+  if (proofs.error) {
+    return { error: mutationMessage(proofs.error, "Could not delete the invoice.") };
   }
 
   const { data, error } = await actor.supabase
@@ -244,8 +257,17 @@ export async function deleteInvoice(invoiceId: string): Promise<Failure | void> 
     return { error: mutationMessage(error, "Could not delete the invoice.") };
   }
 
-  if (existing.pdf_path) {
-    await actor.supabase.storage.from(INVOICES_BUCKET).remove([existing.pdf_path]);
+  const files = [
+    existing.pdf_path,
+    ...(proofs.data ?? []).map((payment) => payment.proof_file_path),
+  ].filter((path): path is string => Boolean(path));
+
+  if (files.length > 0) {
+    const removed = await actor.supabase.storage.from(INVOICES_BUCKET).remove(files);
+
+    if (removed.error) {
+      console.error(removed.error.message);
+    }
   }
 
   revalidateInvoice(parsedId.data, existing.property_id);
@@ -862,5 +884,5 @@ function revalidateInvoice(invoiceId: string, propertyId: string) {
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath(`/invoices/${invoiceId}/edit`);
-  revalidatePath(`/properties/${propertyId}`);
+  revalidatePropertyTabs(propertyId, ["income", "overview"]);
 }

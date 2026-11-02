@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Bar,
   CartesianGrid,
@@ -15,16 +16,17 @@ import {
   YAxis,
 } from "recharts";
 
+import { buttonVariants } from "@/components/ui/button";
 import { formatPercentRatio, formatZAR } from "@/lib/format";
 import type { CategoryShare, MonthFlow, ShortTermMonth } from "@/lib/reporting/aggregate";
 
 const SLICE_COLORS = [
-  "var(--chart-5)",
-  "var(--chart-4)",
-  "var(--chart-3)",
   "var(--chart-2)",
   "var(--chart-1)",
-  "var(--foreground)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "var(--primary)",
 ];
 
 export function DashboardCharts({
@@ -41,13 +43,25 @@ export function DashboardCharts({
   shortTermCount: number;
 }) {
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
-      <IncomeChart flows={flows} />
-      <ExpenseChart slices={slices} credits={credits} />
-      <div className="xl:col-span-2">
+    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+        <h2 className="text-base font-semibold">Portfolio activity</h2>
+        <Link href="/properties" className={buttonVariants({ size: "sm" })}>
+          Go to properties
+        </Link>
+      </div>
+      <div className="grid border-t border-border lg:grid-cols-2">
+        <div className="p-5 lg:border-r lg:border-border">
+          <IncomeChart flows={flows} />
+        </div>
+        <div className="border-t border-border p-5 lg:border-t-0">
+          <ExpenseChart slices={slices} credits={credits} />
+        </div>
+      </div>
+      <div className="border-t border-border p-5">
         <StayChart points={shortTerm} propertyCount={shortTermCount} />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -62,8 +76,8 @@ function IncomeChart({ flows }: { flows: MonthFlow[] }) {
   return (
     <section className="grid gap-3">
       <div>
-        <h2 className="font-heading text-lg font-medium">Income and expenses</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h3 className="text-sm font-semibold">Income and expenses</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
           Whole calendar months that overlap this period. Bond interest and capital purchases are
           left out. The line is income minus expenses.
         </p>
@@ -90,12 +104,12 @@ function IncomeChart({ flows }: { flows: MonthFlow[] }) {
                 <Tooltip content={<MoneyTooltip />} />
                 <Legend />
                 <Bar dataKey="income" name="Income" fill="var(--chart-2)" radius={4} />
-                <Bar dataKey="expenses" name="Expenses" fill="var(--chart-5)" radius={4} />
+                <Bar dataKey="expenses" name="Expenses" fill="var(--chart-4)" radius={4} />
                 <Line
                   type="linear"
                   dataKey="net"
                   name="Net"
-                  stroke="var(--foreground)"
+                  stroke="var(--primary)"
                   strokeWidth={2}
                   dot={false}
                 />
@@ -104,6 +118,9 @@ function IncomeChart({ flows }: { flows: MonthFlow[] }) {
           </div>
         </div>
       )}
+      <Link href="/income" className="text-sm font-medium text-primary hover:underline">
+        View income
+      </Link>
     </section>
   );
 }
@@ -118,8 +135,8 @@ function ExpenseChart({ slices, credits }: { slices: CategoryShare[]; credits: C
   return (
     <section className="grid gap-3">
       <div>
-        <h2 className="font-heading text-lg font-medium">Expenses by category</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h3 className="text-sm font-semibold">Expenses by category</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
           Operating expenses in the months that overlap this period.
         </p>
       </div>
@@ -137,7 +154,7 @@ function ExpenseChart({ slices, credits }: { slices: CategoryShare[]; credits: C
                   innerRadius="58%"
                   outerRadius="82%"
                   paddingAngle={2}
-                  stroke="var(--background)"
+                  stroke="var(--card)"
                 >
                   {points.map((point) => (
                     <Cell key={point.name} fill={point.fill} />
@@ -173,6 +190,9 @@ function ExpenseChart({ slices, credits }: { slices: CategoryShare[]; credits: C
           ))}
         </ul>
       ) : null}
+      <Link href="/expenses" className="text-sm font-medium text-primary hover:underline">
+        View expenses
+      </Link>
     </section>
   );
 }
@@ -187,8 +207,8 @@ function StayChart({ points, propertyCount }: { points: ShortTermMonth[]; proper
   return (
     <section className="grid gap-3">
       <div>
-        <h2 className="font-heading text-lg font-medium">Short-term occupancy and ADR</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h3 className="text-sm font-semibold">Short-term occupancy and ADR</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
           Occupancy is nights booked divided by the days in the month across active short-term
           properties. A missing statement counts as no nights. ADR is gross income divided by nights
           booked.
@@ -234,7 +254,7 @@ function StayChart({ points, propertyCount }: { points: ShortTermMonth[]; proper
                   yAxisId="occupancy"
                   dataKey="occupancy"
                   name="Occupancy"
-                  fill="var(--chart-3)"
+                  fill="var(--chart-2)"
                   radius={4}
                 />
                 <Line
@@ -242,7 +262,7 @@ function StayChart({ points, propertyCount }: { points: ShortTermMonth[]; proper
                   type="linear"
                   dataKey="adr"
                   name="ADR"
-                  stroke="var(--foreground)"
+                  stroke="var(--primary)"
                   strokeWidth={2}
                   dot={false}
                   connectNulls={false}
@@ -252,12 +272,19 @@ function StayChart({ points, propertyCount }: { points: ShortTermMonth[]; proper
           </div>
         </div>
       )}
+      <Link href="/income" className="text-sm font-medium text-primary hover:underline">
+        View income
+      </Link>
     </section>
   );
 }
 
 function EmptyChart({ label }: { label: string }) {
-  return <p className="text-sm text-muted-foreground">{label}</p>;
+  return (
+    <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+      {label}
+    </div>
+  );
 }
 
 function MoneyTooltip({

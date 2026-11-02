@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { revalidatePropertyTabs } from "@/lib/properties/revalidate";
 import { z } from "zod";
 
 import { getActor, type Actor } from "@/lib/auth/access";
@@ -246,6 +248,64 @@ export async function updateBill(
   }
 
   return saveBill(input, parsedId.data);
+}
+
+export async function deleteBill(billId: string): Promise<ActionError | void> {
+  const parsedId = z.uuid().safeParse(billId);
+
+  if (!parsedId.success) {
+    return { error: "Bill not found." };
+  }
+
+  const actor = await getActor();
+
+  if (!actor.ok) {
+    return { error: actor.message };
+  }
+
+  if (!actor.isAdmin) {
+    return { error: "You do not have access to delete bills." };
+  }
+
+  const { data, error } = await actor.supabase
+    .from("rates_levies_bills")
+    .select("id, property_id, file_path, proof_file_path")
+    .eq("id", parsedId.data)
+    .maybeSingle();
+
+  if (error) {
+    return { error: saveMessage(error) };
+  }
+
+  if (!data) {
+    return { error: "Bill not found." };
+  }
+
+  const removed = await actor.supabase
+    .from("rates_levies_bills")
+    .delete()
+    .eq("id", parsedId.data)
+    .select("id");
+
+  if (removed.error) {
+    return { error: saveMessage(removed.error) };
+  }
+
+  if (!removed.data[0]) {
+    return { error: "Could not delete the bill." };
+  }
+
+  const files = [data.file_path, data.proof_file_path].filter((path): path is string => Boolean(path));
+
+  if (files.length > 0) {
+    const storage = await actor.supabase.storage.from(BILLS_BUCKET).remove(files);
+
+    if (storage.error) {
+      console.error(storage.error.message);
+    }
+  }
+
+  revalidateBills(data.property_id);
 }
 
 export async function markBillPaid(
@@ -520,7 +580,7 @@ function revalidateBills(propertyId: string | null) {
   revalidatePath("/expenses");
 
   if (propertyId) {
-    revalidatePath(`/properties/${propertyId}`);
+    revalidatePropertyTabs(propertyId, ["rates-levies", "expenses", "overview"]);
   }
 }
 

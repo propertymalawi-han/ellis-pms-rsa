@@ -29,8 +29,8 @@ export function UserMenu({ user }: { user: SessionUser | null }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-9 gap-2 px-1.5 sm:px-2.5">
-          <span className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-medium">
+        <Button variant="outline" className="h-9 gap-2 px-1.5 sm:px-2.5">
+          <span className="flex size-7 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
             {getInitials(user)}
           </span>
           <span className="hidden max-w-40 truncate text-sm font-medium sm:inline">

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Instrument_Sans } from "next/font/google";
 
 import { Providers } from "@/components/providers";
 import { APP_NAME } from "@/lib/constants";
 
 import "./globals.css";
 
-const geistSans = Geist({
+const sans = Instrument_Sans({
   variable: "--font-sans",
   subsets: ["latin"],
 });
@@ -31,9 +31,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en-ZA" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-svh antialiased`}
-      >
+      <body className={`${sans.variable} ${geistMono.variable} min-h-svh font-sans antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

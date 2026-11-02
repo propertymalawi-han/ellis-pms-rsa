@@ -63,17 +63,17 @@ export function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
   }
 
   return (
-    <section className="grid gap-3">
-      <div>
-        <h2 className="font-heading text-lg font-medium">Properties</h2>
+    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="px-5 pt-4">
+        <h2 className="text-base font-semibold">Properties</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Active properties for this period. Yields are annualised. Select a row to open the property.
         </p>
       </div>
       {sorted.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No active properties.</p>
+        <p className="px-5 py-4 text-sm text-muted-foreground">No active properties.</p>
       ) : (
-        <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
+        <div className="mt-3">
           <Table>
             <TableHeader>
               <TableRow>
@@ -120,7 +120,7 @@ export function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
                   <TableCell>
                     <Link
                       href={`/properties/${row.propertyId}`}
-                      className="font-medium"
+                      className="font-medium text-primary"
                       onClick={(event) => event.stopPropagation()}
                     >
                       {row.propertyName}

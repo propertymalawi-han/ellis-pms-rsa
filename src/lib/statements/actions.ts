@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { revalidatePropertyTabs } from "@/lib/properties/revalidate";
 import { z } from "zod";
 
 import { getActor, type Actor } from "@/lib/auth/access";
@@ -381,7 +383,7 @@ function saveMessage(error: { code?: string; message: string; details?: string |
 }
 
 function revalidateStatements(propertyId: string) {
-  revalidatePath(`/properties/${propertyId}`);
+  revalidatePropertyTabs(propertyId, ["income", "overview"]);
   revalidatePath("/income");
 }
 

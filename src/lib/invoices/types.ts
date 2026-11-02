@@ -36,6 +36,7 @@ export type InvoiceLine = {
 export type InvoicePayment = {
   id: string;
   invoiceId: string;
+  invoiceNumber?: string | null;
   amount: string;
   paymentDate: string;
   method: PaymentMethod;

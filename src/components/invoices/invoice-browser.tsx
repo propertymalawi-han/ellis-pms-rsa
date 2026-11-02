@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
+import { DeleteInvoiceButton } from "@/components/invoices/delete-invoice-button";
 import { InvoiceStatusBadge } from "@/components/invoices/invoice-status-badge";
 import {
   Select,
@@ -20,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDateOnly, formatZAR } from "@/lib/format";
-import { balanceCents, centsToMoney } from "@/lib/invoices/calc";
+import { balanceCents, canDeleteInvoice, centsToMoney } from "@/lib/invoices/calc";
 import {
   invoiceStatusLabels,
   isInvoiceStatus,
@@ -35,10 +36,12 @@ export function InvoiceBrowser({
   invoices,
   properties,
   today,
+  canDeleteAny = false,
 }: {
   invoices: InvoiceListItem[];
   properties: PropertyOption[];
   today: string;
+  canDeleteAny?: boolean;
 }) {
   const [propertyId, setPropertyId] = useState("all");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -138,6 +141,7 @@ export function InvoiceBrowser({
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-right">Balance</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -158,6 +162,16 @@ export function InvoiceBrowser({
                 <TableCell className="text-right">
                   {formatZAR(centsToMoney(balanceCents(invoice.total, invoice.amountPaid)))}
                 </TableCell>
+                <TableCell className="text-right">
+                  {canDeleteInvoice(invoice, canDeleteAny) ? (
+                    <DeleteInvoiceButton
+                      invoiceId={invoice.id}
+                      invoiceNumber={invoice.invoiceNumber}
+                      issued={invoice.issued}
+                      amountPaid={invoice.amountPaid}
+                    />
+                  ) : null}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -169,7 +183,7 @@ export function InvoiceBrowser({
 
 function TotalCard({ label, amount }: { label: string; amount: string }) {
   return (
-    <div className="rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-medium">{formatZAR(amount)}</p>
     </div>

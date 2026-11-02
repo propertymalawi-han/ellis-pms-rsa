@@ -4,13 +4,14 @@ import { getActor } from "@/lib/auth/access";
 import { isBillStatus, isBillType } from "@/lib/bills/labels";
 import type { BillProperty, RatesBill } from "@/lib/bills/types";
 import { MONEY, parseDecimal } from "@/lib/money";
+import { pageBounds, pageCountFor } from "@/lib/pagination";
 import { propertyTypes, type PropertyType } from "@/lib/properties/labels";
 
 const billColumns =
   "id, property_id, bill_type, issuer_name, account_number, period_month, statement_date, due_date, levy, special_levy, municipal_rates, water, electricity, refuse, sewerage, other_charges, arrears, interest, total_due, amount_paid, paid_date, status, file_path, proof_file_path";
 
-export async function loadBills(propertyId?: string): Promise<
-  | { ok: true; bills: RatesBill[]; properties: BillProperty[] }
+export async function loadBills(propertyId?: string, page?: number): Promise<
+  | { ok: true; bills: RatesBill[]; properties: BillProperty[]; page: number; pageCount: number }
   | { ok: false; message: string }
 > {
   if (propertyId && !z.uuid().safeParse(propertyId).success) {
@@ -23,14 +24,18 @@ export async function loadBills(propertyId?: string): Promise<
     return actor;
   }
 
-  let billQuery = actor.supabase.from("rates_levies_bills").select(billColumns);
+  const bounds = typeof page === "number" ? pageBounds(page) : null;
+  let billQuery = actor.supabase
+    .from("rates_levies_bills")
+    .select(billColumns, bounds ? { count: "exact" } : undefined);
 
   if (propertyId) {
     billQuery = billQuery.eq("property_id", propertyId);
   }
 
+  const orderedBills = billQuery.order("period_month", { ascending: false });
   const [billsResult, propertiesResult] = await Promise.all([
-    billQuery.order("period_month", { ascending: false }),
+    bounds ? orderedBills.range(bounds.from, bounds.to) : orderedBills,
     actor.isAdmin
       ? actor.supabase
           .from("properties")
@@ -55,14 +60,17 @@ export async function loadBills(propertyId?: string): Promise<
     return [{ id: row.id, name: row.name, propertyType: row.property_type }];
   });
   const propertyNames = new Map(properties.map((property) => [property.id, property.name]));
+  const bills = billsResult.data.flatMap((row) => {
+    const bill = mapBill(row, propertyNames);
+    return bill ? [bill] : [];
+  });
 
   return {
     ok: true,
     properties,
-    bills: billsResult.data.flatMap((row) => {
-      const bill = mapBill(row, propertyNames);
-      return bill ? [bill] : [];
-    }),
+    page: page ?? 1,
+    pageCount: bounds ? pageCountFor(billsResult.count ?? bills.length) : 1,
+    bills,
   };
 }
 

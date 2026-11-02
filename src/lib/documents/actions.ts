@@ -10,6 +10,8 @@ import {
   SIGNED_URL_SECONDS,
   documentCategories,
 } from "@/lib/documents/labels";
+import { signDocumentPreviews } from "@/lib/documents/signing";
+import { revalidatePropertyTab } from "@/lib/properties/revalidate";
 import {
   buildDocumentStoragePath,
   documentNameSchema,
@@ -20,6 +22,7 @@ import {
   propertyIdFromDocumentPath,
   resolveContentType,
   startUploadSchema,
+  thumbnailPathFor,
 } from "@/lib/documents/schema";
 
 type ActionError = { error: string };
@@ -82,6 +85,7 @@ export async function finishPropertyDocumentUpload(input: {
   name: string;
   category: string;
   path: string;
+  thumbnailPath?: string;
 }): Promise<ActionError | void> {
   const parsed = finishUploadSchema.safeParse(input);
 
@@ -122,11 +126,18 @@ export async function finishPropertyDocumentUpload(input: {
     return { error: "Files must be 20 MB or smaller." };
   }
 
+  const thumbnailPath = await acceptedThumbnail(
+    actor,
+    parsed.data.path,
+    parsed.data.thumbnailPath,
+  );
+
   const { error } = await actor.supabase.from("documents").insert({
     property_id: parsed.data.propertyId,
     category: parsed.data.category,
     name: parsed.data.name,
     file_path: parsed.data.path,
+    thumbnail_path: thumbnailPath,
     file_size: stored.fileSize,
     mime_type: stored.mimeType,
     uploaded_by: actor.userId,
@@ -137,6 +148,10 @@ export async function finishPropertyDocumentUpload(input: {
 
     if (error.code !== "23505") {
       await discardUnlinked(actor, parsed.data.path);
+    }
+
+    if (thumbnailPath) {
+      await discardUnlinked(actor, thumbnailPath);
     }
 
     return { error: "Could not save the document." };
@@ -309,7 +324,11 @@ export async function deletePropertyDocument(
 
   const { error: storageError } = await actor.supabase.storage
     .from(PROPERTY_DOCUMENTS_BUCKET)
-    .remove([existing.file_path]);
+    .remove(
+      existing.thumbnail_path
+        ? [existing.file_path, existing.thumbnail_path]
+        : [existing.file_path],
+    );
 
   revalidateDocuments(existing.property_id);
 
@@ -368,14 +387,70 @@ export async function getPropertyDocumentUrl(
 }
 
 function revalidateDocuments(propertyId: string) {
-  revalidatePath(`/properties/${propertyId}`);
+  revalidatePropertyTab(propertyId, "documents");
   revalidatePath("/documents");
+}
+
+export async function refreshDocumentPreviewUrls(ids: string[]): Promise<
+  | {
+      previews: {
+        id: string;
+        previewUrl: string | null;
+        thumbnailUrl: string | null;
+        previewExpiresAt: string;
+      }[];
+    }
+  | { error: string }
+> {
+  const parsed = z.array(z.uuid()).max(25).safeParse(ids);
+
+  if (!parsed.success || parsed.data.length === 0) {
+    return { error: "Could not refresh the previews." };
+  }
+
+  const actor = await getActor();
+
+  if (!actor.ok) {
+    return { error: actor.message };
+  }
+
+  const { data, error } = await actor.supabase
+    .from("documents")
+    .select("id, file_path, thumbnail_path")
+    .in("id", parsed.data);
+
+  if (error) {
+    console.error(error.message);
+    return { error: "Could not refresh the previews." };
+  }
+
+  const signed = await signDocumentPreviews(
+    actor.supabase,
+    data.map((row) => ({
+      id: row.id,
+      filePath: row.file_path,
+      thumbnailPath: row.thumbnail_path,
+    })),
+  );
+
+  return {
+    previews: data.map((row) => {
+      const preview = signed.get(row.id);
+
+      return {
+        id: row.id,
+        previewUrl: preview?.previewUrl ?? null,
+        thumbnailUrl: preview?.thumbnailUrl ?? null,
+        previewExpiresAt: preview?.previewExpiresAt ?? new Date(0).toISOString(),
+      };
+    }),
+  };
 }
 
 async function loadDocument(actor: ReadyActor, documentId: string) {
   const { data, error } = await actor.supabase
     .from("documents")
-    .select("id, name, category, property_id, file_path")
+    .select("id, name, category, property_id, file_path, thumbnail_path")
     .eq("id", documentId)
     .maybeSingle();
 
@@ -385,6 +460,31 @@ async function loadDocument(actor: ReadyActor, documentId: string) {
   }
 
   return data;
+}
+
+async function acceptedThumbnail(
+  actor: ReadyActor,
+  filePath: string,
+  thumbnailPath: string | undefined,
+): Promise<string | null> {
+  if (!thumbnailPath) {
+    return null;
+  }
+
+  const expected = thumbnailPathFor(filePath);
+
+  if (!expected || thumbnailPath !== expected) {
+    return null;
+  }
+
+  const stored = await readOwnFile(actor, thumbnailPath);
+
+  if (!stored || stored.mimeType !== "image/jpeg" || stored.fileSize <= 0) {
+    await discardUnlinked(actor, thumbnailPath);
+    return null;
+  }
+
+  return thumbnailPath;
 }
 
 async function readOwnFile(

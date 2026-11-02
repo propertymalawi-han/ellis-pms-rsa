@@ -33,7 +33,10 @@ export const PROPERTY_DOCUMENTS_BUCKET = "property-documents";
 
 export const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
 
-export const SIGNED_URL_SECONDS = 10 * 60;
+export const SIGNED_URL_SECONDS = 60 * 60;
+
+/** Refresh a batch of signed URLs once they are this close to expiry. */
+export const SIGNED_URL_REFRESH_LEAD_MS = 5 * 60 * 1000;
 
 export const DOCUMENT_FILE_ACCEPT =
   ".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp";

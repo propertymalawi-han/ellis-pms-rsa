@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Download, Eye, Pencil, Tags, Trash2 } from "lucide-react";
+import { Download, Eye, FileText, Pencil, Tags, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { DocumentPreviewSheet } from "@/components/documents/document-preview-sheet";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -40,13 +41,14 @@ import {
 } from "@/components/ui/table";
 import {
   deletePropertyDocument,
-  getPropertyDocumentUrl,
+  refreshDocumentPreviewUrls,
   renamePropertyDocument,
   updatePropertyDocumentCategory,
 } from "@/lib/documents/actions";
 import {
   documentCategories,
   documentCategoryLabels,
+  SIGNED_URL_REFRESH_LEAD_MS,
   type DocumentCategory,
 } from "@/lib/documents/labels";
 import { documentNameSchema } from "@/lib/documents/schema";
@@ -64,63 +66,226 @@ export function DocumentTable({
   showProperty?: boolean;
   emptyMessage: string;
 }) {
-  if (documents.length === 0) {
+  const [items, setItems] = useState(documents);
+  const [preview, setPreview] = useState<DocumentListItem | null>(null);
+
+  useEffect(() => {
+    setItems(documents);
+  }, [documents]);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      return;
+    }
+
+    const expiresAt = items.reduce((soonest, item) => {
+      const time = Date.parse(item.previewExpiresAt);
+      return Number.isNaN(time) ? soonest : Math.min(soonest, time);
+    }, Number.POSITIVE_INFINITY);
+
+    if (!Number.isFinite(expiresAt)) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function refresh() {
+      const result = await refreshDocumentPreviewUrls(items.map((item) => item.id));
+
+      if (cancelled || "error" in result) {
+        return;
+      }
+
+      const byId = new Map(result.previews.map((item) => [item.id, item]));
+      setItems((current) =>
+        current.map((item) => {
+          const next = byId.get(item.id);
+          return next
+            ? {
+                ...item,
+                previewUrl: next.previewUrl,
+                thumbnailUrl: next.thumbnailUrl,
+                previewExpiresAt: next.previewExpiresAt,
+              }
+            : item;
+        }),
+      );
+      setPreview((current) => {
+        if (!current) {
+          return current;
+        }
+
+        const next = byId.get(current.id);
+        return next
+          ? {
+              ...current,
+              previewUrl: next.previewUrl,
+              thumbnailUrl: next.thumbnailUrl,
+              previewExpiresAt: next.previewExpiresAt,
+            }
+          : current;
+      });
+    }
+
+    const delay = expiresAt - SIGNED_URL_REFRESH_LEAD_MS - Date.now();
+
+    if (delay <= 0) {
+      void refresh();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const timer = window.setTimeout(() => {
+      void refresh();
+    }, delay);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [items]);
+
+  if (items.length === 0) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
   }
 
   return (
-    <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {showProperty ? <TableHead>Property</TableHead> : null}
-            <TableHead>Category</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Uploaded by</TableHead>
-            <TableHead>Size</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {documents.map((item) => (
-            <TableRow key={item.id}>
-              {showProperty ? (
-                <TableCell className="whitespace-normal">
-                  <Link
-                    href={`/properties/${item.propertyId}`}
-                    className="font-medium underline-offset-4 hover:underline"
-                  >
-                    {item.propertyName}
-                  </Link>
-                </TableCell>
-              ) : null}
-              <TableCell>{documentCategoryLabels[item.category]}</TableCell>
-              <TableCell className="whitespace-normal font-medium">
-                {item.name}
-              </TableCell>
-              <TableCell>{formatDate(item.createdAt)}</TableCell>
-              <TableCell>{item.uploadedByName}</TableCell>
-              <TableCell>
-                {item.fileSize === null ? "—" : formatFileSize(item.fileSize)}
-              </TableCell>
-              <TableCell className="text-right">
-                <DocumentActions item={item} isAdmin={isAdmin} />
-              </TableCell>
+    <>
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-16">File</TableHead>
+              {showProperty ? <TableHead>Property</TableHead> : null}
+              <TableHead>Category</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Uploaded by</TableHead>
+              <TableHead>Size</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {items.map((item) => (
+              <DocumentRow key={item.id} item={item} showProperty={showProperty} isAdmin={isAdmin} onView={setPreview} />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <DocumentPreviewSheet
+        open={preview !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreview(null);
+          }
+        }}
+        title={preview?.name ?? "Document"}
+        url={preview?.previewUrl ?? null}
+        mimeType={preview?.mimeType ?? null}
+      />
+    </>
+  );
+}
+
+function DocumentRow({
+  item,
+  showProperty,
+  isAdmin,
+  onView,
+}: {
+  item: DocumentListItem;
+  showProperty: boolean;
+  isAdmin: boolean;
+  onView: (item: DocumentListItem) => void;
+}) {
+  const prefetched = useRef(false);
+  const rowRef = useRef<HTMLTableRowElement>(null);
+  const prefetch = useCallback(() => {
+    if (prefetched.current || !item.previewUrl) {
+      return;
+    }
+
+    prefetched.current = true;
+    const link = document.createElement("link");
+    link.rel = "prefetch";
+    link.href = item.previewUrl;
+
+    if (item.mimeType?.startsWith("image/")) {
+      link.as = "image";
+    } else if (item.mimeType === "application/pdf") {
+      link.as = "document";
+    }
+
+    document.head.appendChild(link);
+  }, [item.mimeType, item.previewUrl]);
+
+  useEffect(() => {
+    const node = rowRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        prefetch();
+      }
+    });
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, [prefetch]);
+
+  return (
+    <TableRow ref={rowRef} onMouseEnter={prefetch}>
+      <TableCell>
+        <button
+          type="button"
+          className="block overflow-hidden rounded-md border bg-muted"
+          onClick={() => onView(item)}
+          aria-label={`Preview ${item.name}`}
+        >
+          {item.thumbnailUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.thumbnailUrl} alt="" className="size-10 object-cover" />
+          ) : (
+            <span className="flex size-10 items-center justify-center text-muted-foreground">
+              <FileText className="size-4" />
+            </span>
+          )}
+        </button>
+      </TableCell>
+      {showProperty ? (
+        <TableCell className="whitespace-normal">
+          <Link
+            href={`/properties/${item.propertyId}/overview`}
+            className="font-medium underline-offset-4 hover:underline"
+          >
+            {item.propertyName}
+          </Link>
+        </TableCell>
+      ) : null}
+      <TableCell>{documentCategoryLabels[item.category]}</TableCell>
+      <TableCell className="whitespace-normal font-medium">{item.name}</TableCell>
+      <TableCell>{formatDate(item.createdAt)}</TableCell>
+      <TableCell>{item.uploadedByName}</TableCell>
+      <TableCell>{item.fileSize === null ? "—" : formatFileSize(item.fileSize)}</TableCell>
+      <TableCell className="text-right">
+        <DocumentActions item={item} isAdmin={isAdmin} onView={() => onView(item)} />
+      </TableCell>
+    </TableRow>
   );
 }
 
 function DocumentActions({
   item,
   isAdmin,
+  onView,
 }: {
   item: DocumentListItem;
   isAdmin: boolean;
+  onView: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -131,30 +296,17 @@ function DocumentActions({
   const [category, setCategory] = useState<DocumentCategory>(item.category);
   const [formError, setFormError] = useState<string | null>(null);
 
-  function openDocument(mode: "view" | "download") {
-    startTransition(async () => {
-      const result = await getPropertyDocumentUrl(item.id, mode);
+  function downloadDocument() {
+    if (!item.previewUrl) {
+      toast.error("Could not download the document.");
+      return;
+    }
 
-      if ("error" in result) {
-        toast.error(result.error);
-        return;
-      }
-
-      if (mode === "view") {
-        const opened = window.open(result.url, "_blank", "noopener,noreferrer");
-
-        if (!opened) {
-          toast.error("Allow pop-ups to view this document.");
-        }
-
-        return;
-      }
-
-      const anchor = window.document.createElement("a");
-      anchor.href = result.url;
-      anchor.rel = "noopener";
-      anchor.click();
-    });
+    const anchor = window.document.createElement("a");
+    anchor.href = item.previewUrl;
+    anchor.rel = "noopener";
+    anchor.target = "_blank";
+    anchor.click();
   }
 
   function saveName() {
@@ -233,11 +385,11 @@ function DocumentActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => openDocument("view")}>
+          <DropdownMenuItem onSelect={onView}>
             <Eye />
             View
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => openDocument("download")}>
+          <DropdownMenuItem onSelect={downloadDocument}>
             <Download />
             Download
           </DropdownMenuItem>

@@ -92,7 +92,7 @@ export function PropertyLeases({
           {history.length === 0 ? (
             <p className="text-sm text-muted-foreground">No earlier leases.</p>
           ) : (
-            <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
+            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
               <Table>
                 <TableHeader>
                   <TableRow>

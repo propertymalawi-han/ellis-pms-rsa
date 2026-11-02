@@ -30,7 +30,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   if (!actor.ok) {
     return (
       <div>
-        <PageHeader title="Dashboard" description="Portfolio performance." />
+        <PageHeader
+          title="Dashboard"
+          description="Income, expenses and occupancy across the portfolio."
+        />
         <p className="text-sm text-destructive">{actor.message}</p>
       </div>
     );
@@ -52,21 +55,30 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     : "Choose a reporting period.";
 
   return (
-    <div className="grid gap-8">
+    <div className="grid gap-5">
       <div>
-        <PageHeader title="Dashboard" description={description} />
-        <PeriodSelector
-          preset={preset}
-          from={period.ok ? period.range.from : (params.from ?? "")}
-          to={period.ok ? period.range.to : (params.to ?? "")}
+        <PageHeader
+          title="Dashboard"
+          description="Income, expenses and occupancy across the portfolio."
         />
-        {period.ok ? null : <p className="mt-3 text-sm text-destructive">{period.message}</p>}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <PeriodSelector
+            preset={preset}
+            from={period.ok ? period.range.from : (params.from ?? "")}
+            to={period.ok ? period.range.to : (params.to ?? "")}
+          />
+          {period.ok ? (
+            <p className="text-sm text-muted-foreground">{description}</p>
+          ) : (
+            <p className="text-sm text-destructive">{period.message}</p>
+          )}
+        </div>
       </div>
 
       {loaded && period.ok ? (
         loaded.report.ok ? (
-          <div className="grid gap-8">
-            <KpiGrid figures={loaded.report.data.figures} />
+          <div className="grid gap-5">
+            <KpiGrid figures={loaded.report.data.figures} flows={loaded.report.data.flows} />
             <DashboardCharts
               flows={loaded.report.data.flows}
               slices={loaded.report.data.expenses.slices}

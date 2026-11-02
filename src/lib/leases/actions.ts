@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { revalidatePropertyTabs } from "@/lib/properties/revalidate";
 import { z } from "zod";
 
 import { getActor, type Actor } from "@/lib/auth/access";
@@ -193,7 +195,7 @@ export async function endLease(leaseId: string): Promise<ActionError | void> {
 }
 
 function revalidateProperty(propertyId: string) {
-  revalidatePath(`/properties/${propertyId}`);
+  revalidatePropertyTabs(propertyId, ["tenants", "overview"]);
   revalidatePath("/properties");
 }
 

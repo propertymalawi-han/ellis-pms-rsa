@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { FileUpload } from "@/components/documents/file-upload";
 import { ExpenseForm } from "@/components/expenses/expense-form";
 import { ExpensePreview } from "@/components/expenses/expense-preview";
@@ -44,6 +45,7 @@ import {
 } from "@/lib/expenses/calc";
 import {
   createExpense,
+  deleteExpense,
   discardExpenseUpload,
   generateRecurringExpenses,
   openSavedExpenseFile,
@@ -77,6 +79,7 @@ export function ExpenseBrowser({
   today,
   lockedProperty,
   heading,
+  canDelete = false,
 }: {
   expenses: Expense[];
   categories: ExpenseCategory[];
@@ -84,6 +87,7 @@ export function ExpenseBrowser({
   today: string;
   lockedProperty?: { id: string; name: string };
   heading?: string;
+  canDelete?: boolean;
 }) {
   const router = useRouter();
   const currentTaxYear = taxYearForIso(today) ?? "";
@@ -653,6 +657,14 @@ export function ExpenseBrowser({
                             {displayStatus === "paid" ? null : (
                               <MarkPaidDialog expense={expense} today={today} />
                             )}
+                            {canDelete ? (
+                              <ConfirmDeleteButton
+                                title="Delete expense?"
+                                description="This expense and its files will be removed."
+                                successMessage="Expense deleted."
+                                onDelete={() => deleteExpense(expense.id)}
+                              />
+                            ) : null}
                           </>
                         )}
                       </div>

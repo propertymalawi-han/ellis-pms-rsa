@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { DocumentBrowser } from "@/components/documents/document-browser";
 import { listAccessibleDocuments } from "@/lib/documents/queries";
+import { parsePage } from "@/lib/pagination";
 import type { DocumentPropertyOption } from "@/lib/documents/types";
 import { listProperties } from "@/lib/properties/queries";
 
@@ -8,9 +9,15 @@ export const metadata = {
   title: "Documents",
 };
 
-export default async function DocumentsPage() {
+export default async function DocumentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
   const [documentsResult, propertiesResult] = await Promise.all([
-    listAccessibleDocuments(),
+    listAccessibleDocuments(page),
     listProperties(),
   ]);
 
@@ -43,6 +50,8 @@ export default async function DocumentsPage() {
         documents={documentsResult.documents}
         properties={properties}
         isAdmin={documentsResult.isAdmin}
+        page={documentsResult.page}
+        pageCount={documentsResult.pageCount}
       />
     </div>
   );

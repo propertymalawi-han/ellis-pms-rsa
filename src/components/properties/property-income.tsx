@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 
+import { DeleteInvoiceButton } from "@/components/invoices/delete-invoice-button";
 import { InvoiceStatusBadge } from "@/components/invoices/invoice-status-badge";
 import {
   Table,
@@ -10,15 +12,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDateOnly, formatZAR } from "@/lib/format";
+import { canDeleteInvoice } from "@/lib/invoices/calc";
 import { paymentMethodLabels } from "@/lib/invoices/labels";
 import type { InvoiceListItem, InvoicePayment } from "@/lib/invoices/types";
 
 export function PropertyIncome({
   invoices,
   payments,
+  invoicePager,
+  paymentPager,
+  canDeleteAny = false,
 }: {
   invoices: InvoiceListItem[];
   payments: InvoicePayment[];
+  invoicePager?: ReactNode;
+  paymentPager?: ReactNode;
+  canDeleteAny?: boolean;
 }) {
   const numbers = new Map(invoices.map((invoice) => [invoice.id, invoice.invoiceNumber]));
 
@@ -38,6 +47,7 @@ export function PropertyIncome({
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -58,11 +68,22 @@ export function PropertyIncome({
                   </TableCell>
                   <TableCell className="text-right">{formatZAR(invoice.total)}</TableCell>
                   <TableCell className="text-right">{formatZAR(invoice.amountPaid)}</TableCell>
+                  <TableCell className="text-right">
+                    {canDeleteInvoice(invoice, canDeleteAny) ? (
+                      <DeleteInvoiceButton
+                        invoiceId={invoice.id}
+                        invoiceNumber={invoice.invoiceNumber}
+                        issued={invoice.issued}
+                        amountPaid={invoice.amountPaid}
+                      />
+                    ) : null}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         )}
+        {invoicePager}
       </section>
       <section className="grid gap-3">
         <h2 className="font-heading text-lg font-medium">Payments</h2>
@@ -88,7 +109,7 @@ export function PropertyIncome({
                       href={`/invoices/${payment.invoiceId}`}
                       className="underline-offset-4 hover:underline"
                     >
-                      {numbers.get(payment.invoiceId) ?? "Invoice"}
+                      {payment.invoiceNumber ?? numbers.get(payment.invoiceId) ?? "Invoice"}
                     </Link>
                   </TableCell>
                   <TableCell>{paymentMethodLabels[payment.method]}</TableCell>
@@ -99,6 +120,7 @@ export function PropertyIncome({
             </TableBody>
           </Table>
         )}
+        {paymentPager}
       </section>
     </div>
   );

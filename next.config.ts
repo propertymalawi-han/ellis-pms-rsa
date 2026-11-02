@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
     root: projectRoot,
   },
   experimental: {
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
     serverActions: {
       bodySizeLimit: "12mb",
     },

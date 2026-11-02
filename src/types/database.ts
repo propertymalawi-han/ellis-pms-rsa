@@ -120,6 +120,7 @@ export type Database = {
           mime_type: string | null
           name: string
           property_id: string
+          thumbnail_path: string | null
           uploaded_by: string | null
         }
         Insert: {
@@ -131,6 +132,7 @@ export type Database = {
           mime_type?: string | null
           name: string
           property_id: string
+          thumbnail_path?: string | null
           uploaded_by?: string | null
         }
         Update: {
@@ -142,6 +144,7 @@ export type Database = {
           mime_type?: string | null
           name?: string
           property_id?: string
+          thumbnail_path?: string | null
           uploaded_by?: string | null
         }
         Relationships: [
@@ -955,11 +958,14 @@ export type Database = {
         Row: {
           category: Database["public"]["Enums"]["document_category"] | null
           created_at: string | null
+          file_path: string | null
           file_size: number | null
           id: string | null
+          mime_type: string | null
           name: string | null
           property_id: string | null
           property_name: string | null
+          thumbnail_path: string | null
           uploaded_by_name: string | null
         }
         Relationships: []

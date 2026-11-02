@@ -5,6 +5,7 @@ import { GenerateRentButton } from "@/components/invoices/generate-rent-button";
 import { InvoiceBrowser } from "@/components/invoices/invoice-browser";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { getActor } from "@/lib/auth/access";
 import { johannesburgDateOnly } from "@/lib/format";
 import { listInvoiceProperties, listInvoices } from "@/lib/invoices/queries";
 
@@ -13,9 +14,10 @@ export const metadata: Metadata = {
 };
 
 export default async function InvoicesPage() {
-  const [invoices, properties] = await Promise.all([
+  const [invoices, properties, actor] = await Promise.all([
     listInvoices(),
     listInvoiceProperties(),
+    getActor(),
   ]);
 
   return (
@@ -45,6 +47,7 @@ export default async function InvoicesPage() {
           invoices={invoices.invoices}
           properties={properties.properties}
           today={johannesburgDateOnly()}
+          canDeleteAny={actor.ok && actor.isAdmin}
         />
       )}
     </div>

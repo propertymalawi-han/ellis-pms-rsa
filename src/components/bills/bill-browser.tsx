@@ -6,6 +6,7 @@ import { TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { BillForm } from "@/components/bills/bill-form";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { ChargesChart } from "@/components/bills/charges-chart";
 import { MarkBillPaidDialog } from "@/components/bills/mark-paid-dialog";
 import { FileUpload } from "@/components/documents/file-upload";
@@ -33,6 +34,7 @@ import { uploadBillFile } from "@/lib/bills/browser-upload";
 import {
   billFieldDefaults,
   createBill,
+  deleteBill,
   discardBillUpload,
   openSavedBillFile,
   openUploadedBillFile,
@@ -71,11 +73,13 @@ export function BillBrowser({
   properties,
   today,
   lockedProperty,
+  canDelete = false,
 }: {
   bills: RatesBill[];
   properties: BillProperty[];
   today: string;
   lockedProperty: { id: string; name: string };
+  canDelete?: boolean;
 }) {
   const router = useRouter();
   const [editor, setEditor] = useState<Editor>({ mode: "list" });
@@ -505,6 +509,14 @@ export function BillBrowser({
                       >
                         Edit
                       </Button>
+                      {canDelete ? (
+                        <ConfirmDeleteButton
+                          title="Delete bill?"
+                          description="This bill, its files, and the expenses created from it will be removed."
+                          successMessage="Bill deleted."
+                          onDelete={() => deleteBill(bill.id)}
+                        />
+                      ) : null}
                       {displayStatus === "paid" ? null : (
                         <MarkBillPaidDialog bill={bill} today={today} />
                       )}
@@ -591,7 +603,7 @@ function SummaryCard({
   emphasize?: boolean;
 }) {
   return (
-    <div className="rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className={cn("mt-1 text-xl font-medium", emphasize && "text-destructive")}>{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{detail}</p>

@@ -42,18 +42,21 @@ export function ActionPanel({
   ];
 
   return (
-    <section className="grid gap-4" aria-labelledby="attention-heading">
+    <section className="grid gap-3" aria-labelledby="attention-heading">
       <div>
-        <h2 id="attention-heading" className="font-heading text-lg font-medium">
+        <h2 id="attention-heading" className="text-base font-semibold">
           Needs attention
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Open items as of today. Bills due within 14 days are listed on their own.
         </p>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         {sections.map((section) => (
-          <div key={section.title} className="rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+          <div
+            key={section.title}
+            className="rounded-xl border border-border bg-card px-4 py-4 shadow-sm"
+          >
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-medium">{section.title}</h3>
               {section.items.length > 0 ? (

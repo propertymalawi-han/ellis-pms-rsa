@@ -116,3 +116,14 @@ export function balanceCents(total: string, amountPaid: string): bigint {
 
   return balance > ZERO ? balance : ZERO;
 }
+
+export function canDeleteInvoice(
+  invoice: { issued: boolean; amountPaid: string },
+  canDeleteAny: boolean,
+): boolean {
+  if (canDeleteAny) {
+    return true;
+  }
+
+  return !invoice.issued && moneyToCents(invoice.amountPaid) === ZERO;
+}

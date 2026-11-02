@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 
 import { DocumentTable } from "@/components/documents/document-table";
 import { Input } from "@/components/ui/input";
+import { TablePager } from "@/components/ui/table-pager";
 import {
   Select,
   SelectContent,
@@ -28,10 +29,14 @@ export function DocumentBrowser({
   documents,
   properties,
   isAdmin,
+  page,
+  pageCount,
 }: {
   documents: DocumentListItem[];
   properties: DocumentPropertyOption[];
   isAdmin: boolean;
+  page: number;
+  pageCount: number;
 }) {
   const [search, setSearch] = useState("");
   const [propertyId, setPropertyId] = useState("all");
@@ -122,6 +127,7 @@ export function DocumentBrowser({
             : "No documents match these filters."
         }
       />
+      <TablePager page={page} pageCount={pageCount} path="/documents" />
     </div>
   );
 }

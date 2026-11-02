@@ -23,7 +23,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TablePager } from "@/components/ui/table-pager";
 import { uploadPropertyDocumentFile } from "@/lib/documents/browser-upload";
+import { prepareDocumentUpload } from "@/lib/documents/prepare-upload";
+import {
+  displayNameFromFile,
+  documentFieldsSchema,
+  thumbnailPathFor,
+  validateUploadFile,
+} from "@/lib/documents/schema";
 import {
   discardPropertyDocumentUpload,
   finishPropertyDocumentUpload,
@@ -37,21 +45,20 @@ import {
   isDocumentCategory,
   type DocumentCategory,
 } from "@/lib/documents/labels";
-import {
-  displayNameFromFile,
-  documentFieldsSchema,
-  validateUploadFile,
-} from "@/lib/documents/schema";
 import type { DocumentListItem } from "@/lib/documents/types";
 
 export function PropertyDocuments({
   propertyId,
   documents,
   isAdmin,
+  page,
+  pageCount,
 }: {
   propertyId: string;
   documents: DocumentListItem[];
   isAdmin: boolean;
+  page: number;
+  pageCount: number;
 }) {
   const [category, setCategory] = useState<"all" | DocumentCategory>("all");
   const visible =
@@ -66,8 +73,8 @@ export function PropertyDocuments({
         <CardHeader>
           <CardTitle>Documents</CardTitle>
           <CardDescription>
-            Files are stored privately. View and download links expire after 10
-            minutes.
+            Files are stored privately. Preview links last for an hour and are
+            refreshed before they expire.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -100,6 +107,11 @@ export function PropertyDocuments({
                 ? "No documents yet."
                 : "No documents in this category."
             }
+          />
+          <TablePager
+            page={page}
+            pageCount={pageCount}
+            path={`/properties/${propertyId}/documents`}
           />
         </CardContent>
       </Card>
@@ -151,15 +163,41 @@ function UploadCard({ propertyId }: { propertyId: string }) {
     }
 
     setBusy(true);
+    setProgress({ value: 0, label: "Preparing…" });
+
+    let prepared: Awaited<ReturnType<typeof prepareDocumentUpload>>;
+
+    try {
+      prepared = await prepareDocumentUpload(uploaded.file);
+    } catch (prepareError) {
+      setBusy(false);
+      setProgress(null);
+      setError(
+        prepareError instanceof Error
+          ? prepareError.message
+          : "Could not prepare the file.",
+      );
+      return;
+    }
+
+    const ready = validateUploadFile(prepared.file);
+
+    if (!ready.ok) {
+      setBusy(false);
+      setProgress(null);
+      setError(ready.message);
+      return;
+    }
+
     setProgress({ value: 0, label: "Uploading…" });
 
     const started = await startPropertyDocumentUpload({
       propertyId: parsed.data.propertyId,
       name: parsed.data.name,
       category: parsed.data.category,
-      fileName: uploaded.file.name,
-      fileSize: uploaded.file.size,
-      contentType: uploaded.contentType,
+      fileName: ready.file.name,
+      fileSize: ready.file.size,
+      contentType: ready.contentType,
     });
 
     if ("error" in started) {
@@ -169,11 +207,13 @@ function UploadCard({ propertyId }: { propertyId: string }) {
       return;
     }
 
+    let thumbnailPath: string | undefined;
+
     try {
       await uploadPropertyDocumentFile(
         started.path,
-        uploaded.file,
-        started.contentType,
+        ready.file,
+        ready.contentType,
         (value) => {
           setProgress({ value, label: "Uploading…" });
         },
@@ -190,12 +230,31 @@ function UploadCard({ propertyId }: { propertyId: string }) {
       return;
     }
 
+    if (prepared.thumbnail) {
+      const thumbPath = thumbnailPathFor(started.path);
+
+      if (thumbPath) {
+        try {
+          await uploadPropertyDocumentFile(
+            thumbPath,
+            prepared.thumbnail,
+            "image/jpeg",
+            () => undefined,
+          );
+          thumbnailPath = thumbPath;
+        } catch (thumbnailError) {
+          console.error(thumbnailError);
+        }
+      }
+    }
+
     setProgress({ value: 100, label: "Saving…" });
     const finished = await finishPropertyDocumentUpload({
       propertyId: parsed.data.propertyId,
       name: parsed.data.name,
       category: parsed.data.category,
       path: started.path,
+      thumbnailPath,
     });
 
     setBusy(false);

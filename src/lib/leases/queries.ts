@@ -3,8 +3,10 @@ import { z } from "zod";
 import { getActor } from "@/lib/auth/access";
 import { isLeaseStatus } from "@/lib/leases/labels";
 import type { LeaseRecord, TenantRecord } from "@/lib/leases/types";
+import { warningsForLeases } from "@/lib/leases/warnings";
 import { MONEY, PERCENT, parseDecimal } from "@/lib/money";
 import type { DecimalSpec } from "@/lib/money";
+import { pageBounds, pageCountFor } from "@/lib/pagination";
 
 const leaseSelect =
   "id, property_id, tenant_id, start_date, end_date, monthly_rent, deposit_amount, deposit_held_by, escalation_percent, escalation_date, rent_due_day, status, tenants(id, full_name, id_number, email, phone, notes)";
@@ -18,8 +20,14 @@ type TenantRow = {
   notes: string | null;
 };
 
-export async function loadLeaseDesk(propertyId: string): Promise<
-  | { ok: true; leases: LeaseRecord[]; tenants: TenantRecord[] }
+export async function loadLeaseDesk(propertyId: string, page: number): Promise<
+  | {
+      ok: true;
+      leases: LeaseRecord[];
+      tenants: TenantRecord[];
+      page: number;
+      pageCount: number;
+    }
   | { ok: false; message: string }
 > {
   if (!z.uuid().safeParse(propertyId).success) {
@@ -32,13 +40,15 @@ export async function loadLeaseDesk(propertyId: string): Promise<
     return actor;
   }
 
+  const bounds = pageBounds(page);
   const [leasesResult, tenantsResult] = await Promise.all([
     actor.supabase
       .from("leases")
-      .select(leaseSelect)
+      .select(leaseSelect, { count: "exact" })
       .eq("property_id", propertyId)
       .order("start_date", { ascending: false })
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false })
+      .range(bounds.from, bounds.to),
     actor.supabase
       .from("tenants")
       .select("id, full_name, id_number, email, phone, notes")
@@ -62,8 +72,72 @@ export async function loadLeaseDesk(propertyId: string): Promise<
 
   return {
     ok: true,
+    page,
+    pageCount: pageCountFor(leasesResult.count ?? leases.length),
     leases,
     tenants: tenantsResult.data.map(mapTenant),
+  };
+}
+
+export async function loadLeaseSnapshot(
+  propertyId: string,
+  today: string,
+): Promise<
+  | { ok: true; occupied: boolean; warnings: string[] }
+  | { ok: false; message: string }
+> {
+  if (!z.uuid().safeParse(propertyId).success) {
+    return { ok: false, message: "Could not load leases." };
+  }
+
+  const actor = await getActor();
+
+  if (!actor.ok) {
+    return actor;
+  }
+
+  const { data, error } = await actor.supabase
+    .from("leases")
+    .select("status, start_date, end_date, escalation_percent, escalation_date")
+    .eq("property_id", propertyId);
+
+  if (error) {
+    console.error(error.message);
+    return { ok: false, message: "Could not load leases." };
+  }
+
+  const leases = data.flatMap((row) => {
+    if (!isLeaseStatus(row.status)) {
+      return [];
+    }
+
+    const escalationPercent =
+      row.escalation_percent === null
+        ? null
+        : canonicalDecimal(row.escalation_percent, PERCENT);
+
+    if (row.escalation_percent !== null && !escalationPercent) {
+      return [];
+    }
+
+    return [
+      {
+        status: row.status,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        escalationDate: row.escalation_date,
+        escalationPercent,
+      },
+    ];
+  });
+
+  return {
+    ok: true,
+    occupied: leases.some(
+      (lease) =>
+        lease.status === "active" && lease.startDate <= today && lease.endDate >= today,
+    ),
+    warnings: warningsForLeases(leases, today),
   };
 }
 

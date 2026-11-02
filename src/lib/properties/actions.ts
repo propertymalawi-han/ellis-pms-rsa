@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { revalidatePropertyLayout } from "@/lib/properties/revalidate";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -51,8 +53,8 @@ export async function createProperty(
   }
 
   revalidatePath("/properties");
-  revalidatePath(`/properties/${data.id}`);
-  redirect(`/properties/${data.id}`);
+  revalidatePropertyLayout(data.id);
+  redirect(`/properties/${data.id}/overview`);
 }
 
 export async function updateProperty(
@@ -102,9 +104,9 @@ export async function updateProperty(
   }
 
   revalidatePath("/properties");
-  revalidatePath(`/properties/${data.id}`);
+  revalidatePropertyLayout(data.id);
   revalidatePath(`/properties/${data.id}/edit`);
-  redirect(`/properties/${data.id}`);
+  redirect(`/properties/${data.id}/overview`);
 }
 
 export async function archiveProperty(
@@ -161,7 +163,7 @@ export async function archiveProperty(
   }
 
   revalidatePath("/properties");
-  revalidatePath(`/properties/${existing.id}`);
+  revalidatePropertyLayout(existing.id);
   revalidatePath(`/properties/${existing.id}/edit`);
 }
 

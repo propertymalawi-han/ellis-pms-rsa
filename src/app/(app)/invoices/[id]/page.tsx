@@ -60,7 +60,13 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
         title={invoice.invoiceNumber}
         description={`${invoice.propertyName} · ${invoice.tenantName}`}
         actions={
-          actor.ok ? <InvoiceToolbar invoice={invoice} today={johannesburgDateOnly()} /> : null
+          actor.ok ? (
+            <InvoiceToolbar
+              invoice={invoice}
+              today={johannesburgDateOnly()}
+              canDeleteAny={actor.isAdmin}
+            />
+          ) : null
         }
       />
       <div className="mb-6 flex flex-wrap items-center gap-3 text-sm">

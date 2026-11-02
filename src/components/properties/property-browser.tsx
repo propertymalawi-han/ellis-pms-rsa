@@ -317,7 +317,7 @@ function PropertyTable({
   isAdmin: boolean;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       <Table>
         <TableHeader>
           <TableRow>

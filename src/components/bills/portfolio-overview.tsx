@@ -118,7 +118,7 @@ export function PortfolioOverview({
               >
                 <TableCell>
                   <Link
-                    href={`/properties/${row.propertyId}?tab=rates`}
+                    href={`/properties/${row.propertyId}/rates-levies`}
                     className="font-medium underline-offset-4 hover:underline"
                   >
                     {row.propertyName}

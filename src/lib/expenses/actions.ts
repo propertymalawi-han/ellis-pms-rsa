@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { revalidatePropertyTabs } from "@/lib/properties/revalidate";
 import { z } from "zod";
 
 import { getActor, type Actor } from "@/lib/auth/access";
@@ -182,6 +184,66 @@ export async function updateExpense(
   }
 
   return saveExpense(input, parsedId.data);
+}
+
+export async function deleteExpense(expenseId: string): Promise<ActionError | void> {
+  const parsedId = z.uuid().safeParse(expenseId);
+
+  if (!parsedId.success) {
+    return { error: "Expense not found." };
+  }
+
+  const actor = await getActor();
+
+  if (!actor.ok) {
+    return { error: actor.message };
+  }
+
+  if (!actor.isAdmin) {
+    return { error: "You do not have access to delete expenses." };
+  }
+
+  const { data, error } = await actor.supabase
+    .from("expenses")
+    .select("id, property_id, rates_levies_bill_id, file_path, proof_file_path")
+    .eq("id", parsedId.data)
+    .maybeSingle();
+
+  if (error) {
+    return { error: saveMessage(error) };
+  }
+
+  if (!data) {
+    return { error: "Expense not found." };
+  }
+
+  if (data.rates_levies_bill_id) {
+    return {
+      error: "This expense belongs to a rates and levies bill. Delete the bill to remove it.",
+    };
+  }
+
+  const removed = await actor.supabase.from("expenses").delete().eq("id", parsedId.data).select("id");
+
+  if (removed.error) {
+    return { error: saveMessage(removed.error) };
+  }
+
+  if (!removed.data[0]) {
+    return { error: "Could not delete the expense." };
+  }
+
+  const files = [data.file_path, data.proof_file_path].filter((path): path is string => Boolean(path));
+
+  if (files.length > 0) {
+    const storage = await actor.supabase.storage.from(BILLS_BUCKET).remove(files);
+
+    if (storage.error) {
+      console.error(storage.error.message);
+    }
+  }
+
+  revalidateExpenses(data.property_id);
 }
 
 export async function markExpensePaid(
@@ -479,7 +541,7 @@ function revalidateExpenses(propertyId: string | null) {
   revalidatePath("/expenses");
 
   if (propertyId) {
-    revalidatePath(`/properties/${propertyId}`);
+    revalidatePropertyTabs(propertyId, ["expenses", "overview"]);
   }
 }
 

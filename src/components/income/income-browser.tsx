@@ -72,7 +72,7 @@ export function IncomeBrowser({
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+      <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
         <p className="text-sm text-muted-foreground">Net income</p>
         <p className="mt-1 text-xl font-medium">
           {formatZAR(centsToMoney(incomeNetCents(filtered)))}

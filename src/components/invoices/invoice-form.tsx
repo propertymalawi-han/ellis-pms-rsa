@@ -206,7 +206,7 @@ export function InvoiceForm({
           {lines.fields.map((field, index) => (
             <div
               key={field.id}
-              className="grid gap-3 rounded-xl p-3 ring-1 ring-foreground/10 md:grid-cols-[minmax(0,1fr)_6rem_8rem_auto_auto]"
+              className="grid gap-3 rounded-xl border border-border bg-card p-3 md:grid-cols-[minmax(0,1fr)_6rem_8rem_auto_auto]"
             >
               <FormField
                 control={form.control}

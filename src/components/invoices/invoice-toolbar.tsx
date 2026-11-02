@@ -5,24 +5,27 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { DeleteInvoiceButton } from "@/components/invoices/delete-invoice-button";
 import { RecordPaymentDialog } from "@/components/invoices/record-payment-dialog";
 import { Button } from "@/components/ui/button";
-import { deleteInvoice, markInvoiceSent, openInvoicePdf } from "@/lib/invoices/actions";
-import { balanceCents, centsToMoney } from "@/lib/invoices/calc";
+import { markInvoiceSent, openInvoicePdf } from "@/lib/invoices/actions";
+import { balanceCents, canDeleteInvoice, centsToMoney } from "@/lib/invoices/calc";
 import type { InvoiceDetail } from "@/lib/invoices/types";
 import { decimalToInput } from "@/lib/money";
 
 export function InvoiceToolbar({
   invoice,
   today,
+  canDeleteAny = false,
 }: {
   invoice: InvoiceDetail;
   today: string;
+  canDeleteAny?: boolean;
 }) {
   const router = useRouter();
-  const [pending, setPending] = useState<"sent" | "delete" | "pdf" | null>(null);
+  const [pending, setPending] = useState<"sent" | "pdf" | null>(null);
   const balance = balanceCents(invoice.total, invoice.amountPaid);
-  const canDelete = !invoice.issued && invoice.amountPaid === "0.00";
+  const canDelete = canDeleteInvoice(invoice, canDeleteAny);
 
   async function onSent() {
     setPending("sent");
@@ -35,21 +38,6 @@ export function InvoiceToolbar({
     }
 
     toast.success("Invoice marked as sent.");
-    router.refresh();
-  }
-
-  async function onDelete() {
-    setPending("delete");
-    const result = await deleteInvoice(invoice.id);
-    setPending(null);
-
-    if (result?.error) {
-      toast.error(result.error);
-      return;
-    }
-
-    toast.success("Invoice deleted.");
-    router.push("/invoices");
     router.refresh();
   }
 
@@ -87,14 +75,14 @@ export function InvoiceToolbar({
         />
       ) : null}
       {canDelete ? (
-        <Button
-          type="button"
-          variant="destructive"
-          onClick={onDelete}
-          disabled={pending !== null}
-        >
-          {pending === "delete" ? "Deleting…" : "Delete draft"}
-        </Button>
+        <DeleteInvoiceButton
+          invoiceId={invoice.id}
+          invoiceNumber={invoice.invoiceNumber}
+          issued={invoice.issued}
+          amountPaid={invoice.amountPaid}
+          redirectTo="/invoices"
+          size="default"
+        />
       ) : null}
     </>
   );

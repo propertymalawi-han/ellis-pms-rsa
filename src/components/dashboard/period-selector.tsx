@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { type FormEvent } from "react";
+import { CalendarDays } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,22 +58,24 @@ export function PeriodSelector({
   }
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-      <div className="grid gap-1.5">
-        <Label htmlFor="dashboard-period">Period</Label>
-        <Select value={preset} onValueChange={onPreset}>
-          <SelectTrigger id="dashboard-period" className="w-full sm:w-56" aria-label="Period">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PERIOD_PRESETS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {PERIOD_LABELS[option]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <Select value={preset} onValueChange={onPreset}>
+        <SelectTrigger
+          id="dashboard-period"
+          className="h-9 w-full rounded-full px-3 sm:w-56"
+          aria-label="Period"
+        >
+          <CalendarDays className="size-4 text-muted-foreground" />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {PERIOD_PRESETS.map((option) => (
+            <SelectItem key={option} value={option}>
+              {PERIOD_LABELS[option]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {preset === "custom" ? (
         <form onSubmit={onCustom} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="grid gap-1.5">

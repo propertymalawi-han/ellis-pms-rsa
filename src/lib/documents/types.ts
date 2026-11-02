@@ -9,6 +9,10 @@ export type DocumentListItem = {
   fileSize: number | null;
   createdAt: string;
   uploadedByName: string;
+  mimeType: string | null;
+  previewUrl: string | null;
+  thumbnailUrl: string | null;
+  previewExpiresAt: string;
 };
 
 export type DocumentPropertyOption = {

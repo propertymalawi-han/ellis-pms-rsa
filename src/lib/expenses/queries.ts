@@ -5,16 +5,19 @@ import { isExpenseRecurrence, isExpenseStatus } from "@/lib/expenses/labels";
 import { isPaymentMethod } from "@/lib/invoices/labels";
 import type { Expense, ExpenseCategory, ExpenseProperty } from "@/lib/expenses/types";
 import { MONEY, parseDecimal } from "@/lib/money";
+import { pageBounds, pageCountFor } from "@/lib/pagination";
 
 const expenseColumns =
   "id, property_id, category_id, supplier, description, invoice_number, invoice_date, amount_excl_vat, vat_amount, total, due_date, paid_date, amount_paid, status, payment_method, recurring, recurrence, file_path, proof_file_path, rates_levies_bill_id";
 
-export async function loadExpenses(propertyId?: string): Promise<
+export async function loadExpenses(propertyId?: string, page?: number): Promise<
   | {
       ok: true;
       expenses: Expense[];
       categories: ExpenseCategory[];
       properties: ExpenseProperty[];
+      page: number;
+      pageCount: number;
     }
   | { ok: false; message: string }
 > {
@@ -28,14 +31,18 @@ export async function loadExpenses(propertyId?: string): Promise<
     return actor;
   }
 
-  let expenseQuery = actor.supabase.from("expenses").select(expenseColumns);
+  const bounds = typeof page === "number" ? pageBounds(page) : null;
+  let expenseQuery = actor.supabase
+    .from("expenses")
+    .select(expenseColumns, bounds ? { count: "exact" } : undefined);
 
   if (propertyId) {
     expenseQuery = expenseQuery.eq("property_id", propertyId);
   }
 
+  const orderedExpenses = expenseQuery.order("due_date", { ascending: true });
   const [expensesResult, categoriesResult, propertiesResult] = await Promise.all([
-    expenseQuery.order("due_date", { ascending: true }),
+    bounds ? orderedExpenses.range(bounds.from, bounds.to) : orderedExpenses,
     actor.supabase
       .from("expense_categories")
       .select("id, name, sort_order")
@@ -73,15 +80,18 @@ export async function loadExpenses(propertyId?: string): Promise<
     return [{ id: row.id, name: row.name, sortOrder: row.sort_order }];
   });
   const categoryById = new Map(categories.map((category) => [category.id, category]));
+  const expenses = expensesResult.data.flatMap((row) => {
+    const expense = mapExpense(row, propertyNames, categoryById);
+    return expense ? [expense] : [];
+  });
 
   return {
     ok: true,
     categories,
     properties,
-    expenses: expensesResult.data.flatMap((row) => {
-      const expense = mapExpense(row, propertyNames, categoryById);
-      return expense ? [expense] : [];
-    }),
+    page: page ?? 1,
+    pageCount: bounds ? pageCountFor(expensesResult.count ?? expenses.length) : 1,
+    expenses,
   };
 }
 

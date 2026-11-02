@@ -2,14 +2,16 @@ import { z } from "zod";
 
 import { getActor } from "@/lib/auth/access";
 import { MONEY, SIGNED_MONEY, parseDecimal } from "@/lib/money";
+import { pageBounds, pageCountFor } from "@/lib/pagination";
 import { isStatementStatus } from "@/lib/statements/labels";
 import type { OwnerStatement } from "@/lib/statements/types";
 
 const columns =
   "id, property_id, period_month, statement_date, manager_name, nights_booked, bookings_count, gross_income, platform_fees, management_fee, cleaning_fees, other_deductions, vat_on_fees, net_payout, payout_date, status, file_path";
 
-export async function listPropertyStatements(propertyId: string): Promise<
-  { ok: true; statements: OwnerStatement[] } | { ok: false; message: string }
+export async function listPropertyStatements(propertyId: string, page: number): Promise<
+  | { ok: true; statements: OwnerStatement[]; page: number; pageCount: number }
+  | { ok: false; message: string }
 > {
   if (!z.uuid().safeParse(propertyId).success) {
     return { ok: false, message: "Could not load owner's statements." };
@@ -21,23 +23,29 @@ export async function listPropertyStatements(propertyId: string): Promise<
     return actor;
   }
 
-  const { data, error } = await actor.supabase
+  const bounds = pageBounds(page);
+  const { data, error, count } = await actor.supabase
     .from("owner_statements")
-    .select(columns)
+    .select(columns, { count: "exact" })
     .eq("property_id", propertyId)
-    .order("period_month", { ascending: false });
+    .order("period_month", { ascending: false })
+    .range(bounds.from, bounds.to);
 
   if (error) {
     console.error(error.message);
     return { ok: false, message: "Could not load owner's statements." };
   }
 
+  const statements = data.flatMap((row) => {
+    const statement = mapStatement(row);
+    return statement ? [statement] : [];
+  });
+
   return {
     ok: true,
-    statements: data.flatMap((row) => {
-      const statement = mapStatement(row);
-      return statement ? [statement] : [];
-    }),
+    page,
+    pageCount: pageCountFor(count ?? statements.length),
+    statements,
   };
 }
 
